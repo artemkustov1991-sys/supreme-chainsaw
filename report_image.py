@@ -10,18 +10,18 @@ plt.rcParams['font.family'] = 'DejaVu Sans'
 
 HDR_BG = '#2C3E50'
 HDR_FG = 'white'
-RED    = '#FFAAAA'   # значение плохое
-YELLOW = '#FFF5AA'   # близко к норме / погранично
-GREEN  = '#AAFFAA'   # норма выполнена
-WHITE  = '#FFFFFF'   # нейтральная ячейка (нет нормы)
+RED    = '#FFAAAA'
+YELLOW = '#FFF5AA'
+GREEN  = '#AAFFAA'
+WHITE  = '#FFFFFF'
 
 
 # ── Функции оценки цвета ──────────────────────────────────────────────────────
 
 def _c_plan(v):
-    """ПЛАН%: <50 → красный, 50-70 → жёлтый, 70-85 → светло-жёлтый, ≥85 → зелёный."""
+    """ПЛАН%: <50 → красный, 50-70 → оранжевый, 70-85 → жёлтый, ≥85 → зелёный."""
     if v < 50:  return RED
-    if v < 70:  return '#FFCC88'   # оранжевый
+    if v < 70:  return '#FFCC88'
     if v < 85:  return YELLOW
     return GREEN
 
@@ -33,7 +33,7 @@ def _c_norm(v, norm, bad=0.8):
     return GREEN
 
 def _c_delta(v, bad=-15):
-    """Динамика (%, может быть отрицательной): <bad → красный, отриц. → жёлтый, ≥0 → зелёный."""
+    """Динамика (%): <bad → красный, отриц. → жёлтый, ≥0 → зелёный."""
     if v <= bad:  return RED
     if v < 0:     return YELLOW
     return GREEN
@@ -42,10 +42,6 @@ def _c_delta(v, bad=-15):
 # ── Рендер таблицы ────────────────────────────────────────────────────────────
 
 def _draw(title, col_labels, rows, cell_colors, date_str, time_str):
-    """
-    cell_colors — 2D список [строка][колонка] цветов.
-    Первый столбец (Магазин) всегда WHITE.
-    """
     n_rows = len(rows)
     n_cols = len(col_labels)
     fig_w  = max(9, n_cols * 1.75)
@@ -92,15 +88,23 @@ def _pr(v):  return f'{v:.2f}'
 
 # ── Генерация таблиц ─────────────────────────────────────────────────────────
 
-def generate_images(stores, norms, date_str, time_str):
+def generate_images(stores, norms, total, date_str, time_str):
     """
     Возвращает список (label, png_bytes).
     stores  — список словарей из bot_analyzer.load()
     norms   — словарь норм из bot_analyzer.load()
+    total   — словарь итогов (ПвЧ и СЧ берём как норму из итого-строки)
     """
     images = []
 
-    # ── Таблица 1: Основные — ПЛАН, КОП, ТО к нед./вчера ─────────────────────
+    # Динамические нормы для метрик без фиксированной нормы
+    n = len(stores)
+    avg_kozha = sum(st['kozha'] for st in stores) / n if n else 0
+
+    norm_pvch = total['pvch']   # итого по подразделению = ориентир
+    norm_sch  = total['sch']    # итого СЧ
+
+    # ── Таблица 1: Основные — ПЛАН, КОП, ТО к нед./вчера, ПвЧ ───────────────
     s1 = sorted(stores, key=lambda x: x['plan'])
     rows1, colors1 = [], []
     for st in s1:
@@ -112,19 +116,16 @@ def generate_images(stores, norms, date_str, time_str):
             _c_norm(st['kop'],    norms['kop']),
             _c_delta(st['to_ned'], bad=-20),
             _c_delta(st['to_vch'], bad=-15),
-            WHITE,
+            _c_norm(st['pvch'],   norm_pvch),
         ])
     images.append(('main', _draw(
-        'Основные — ПЛАН, КОП, ТО к нед./вчера',
+        'Основные — ПЛАН, КОП, ТО к нед./вчера, ПвЧ',
         ['Магазин', 'ПЛАН%', 'КОП%', 'ТО/нед', 'ТО/вчера', 'ПвЧ'],
         rows1, colors1, date_str, time_str
     )))
 
     # ── Таблица 2: Допродажи ──────────────────────────────────────────────────
-    def upsell(st):
-        return (st['kosm'] + st['steli'] + st['yui']) / 3
-
-    s2 = sorted(stores, key=upsell)
+    s2 = sorted(stores, key=lambda x: (x['kosm'] + x['steli'] + x['yui']) / 3)
     rows2, colors2 = [], []
     for st in s2:
         rows2.append([st['name'], _p(st['kosm']), _p(st['steli']),
@@ -153,14 +154,33 @@ def generate_images(stores, norms, date_str, time_str):
             WHITE,
             _c_norm(st['rass'],   norms['rass']),
             _c_norm(st['sbp'],    norms['sbp']),
-            WHITE,   # Кожа — нет нормы, информационно
+            _c_norm(st['kozha'],  avg_kozha),
             _c_norm(st['sch_ob'], norms['sch_ob']),
-            WHITE,
+            _c_norm(st['sch'],    norm_sch),
         ])
     images.append(('services', _draw(
         'Услуги и чек — Рассрочка, СБП, Кожа, СЧ обуви',
         ['Магазин', 'Рассрочка%', 'СБП%', 'Кожа%', 'СЧ обувь', 'СЧ'],
         rows3, colors3, date_str, time_str
+    )))
+
+    # ── Таблица 4: Качество чека — ПвЧ, СЧ, Кожа (сортировка по ПвЧ) ─────────
+    s4 = sorted(stores, key=lambda x: x['pvch'])
+    rows4, colors4 = [], []
+    for st in s4:
+        rows4.append([st['name'], _pr(st['pvch']),
+                      _r(st['sch_ob']), _r(st['sch']), _p(st['kozha'])])
+        colors4.append([
+            WHITE,
+            _c_norm(st['pvch'],   norm_pvch),
+            _c_norm(st['sch_ob'], norms['sch_ob']),
+            _c_norm(st['sch'],    norm_sch),
+            _c_norm(st['kozha'],  avg_kozha),
+        ])
+    images.append(('check_quality', _draw(
+        'Качество чека — ПвЧ, СЧ обуви, СЧ, Кожа',
+        ['Магазин', 'ПвЧ', 'СЧ обувь', 'СЧ', 'Кожа%'],
+        rows4, colors4, date_str, time_str
     )))
 
     return images

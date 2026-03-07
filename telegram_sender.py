@@ -65,7 +65,7 @@ def main(filepath):
     send_file(chat_id, filepath)
 
     print("\n📊 Генерация таблиц-рейтингов...")
-    images = generate_images(stores, norms, date_str, time_str)
+    images = generate_images(stores, norms, total, date_str, time_str)
     for label, png_bytes in images:
         print(f"    → {label}")
         send_photo(chat_id, png_bytes)
