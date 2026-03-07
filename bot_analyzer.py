@@ -72,7 +72,13 @@ def load(filepath):
     df = pd.read_excel(filepath, sheet_name='Подразделение', header=None)
     date_str = str(df.iloc[1][0]).replace('Дата формирования: ', '').strip()
     time_str = str(df.iloc[2][0]).replace('Время: ', '').strip()
-    bench = df.iloc[35]
+
+    # Ищем строку итогов по Ростову (колонка A содержит "Ростов")
+    bench = df.iloc[35]  # fallback — Итого по ЮГ
+    for i in range(25, df.shape[0]):
+        if 'ростов' in str(df.iloc[i, 0]).lower():
+            bench = df.iloc[i]
+            break
 
     norms = {
         'kop':    s(bench[7]),
@@ -84,16 +90,6 @@ def load(filepath):
         'yui':    s(bench[34]),
         'sreb':   s(bench[35]),
         'zol':    s(bench[36]),
-    }
-
-    total = {
-        'to':     sv(bench[2]),
-        'kop':    s(bench[7]),
-        'pvch':   round(s(bench[10], mult=1), 2),
-        'sch':    sv(bench[15]),
-        'traf':   sv(bench[17]),
-        'to_ned': s(bench[3]),
-        'to_vch': s(bench[4]),
     }
 
     stores = []
@@ -125,6 +121,16 @@ def load(filepath):
             'sreb':     s(row[35]),
             'zol':      s(row[36]),
         })
+
+    total = {
+        'to':     sum(sv(df.iloc[i, 2]) for i in range(5, 25)),  # сумма ТО магазинов
+        'kop':    s(bench[7]),
+        'pvch':   round(s(bench[10], mult=1), 2),
+        'sch':    sv(bench[15]),
+        'traf':   sum(sv(df.iloc[i, 17]) for i in range(5, 25)),  # сумма трафика
+        'to_ned': s(bench[3]),
+        'to_vch': s(bench[4]),
+    }
 
     return stores, date_str, time_str, norms, total
 
