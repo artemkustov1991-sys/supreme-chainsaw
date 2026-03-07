@@ -104,41 +104,43 @@ def generate_images(stores, norms, total, date_str, time_str):
     norm_pvch = total['pvch']   # итого по подразделению = ориентир
     norm_sch  = total['sch']    # итого СЧ
 
-    # ── Таблица 1: Основные — КОП, ТО к нед./вчера, ПвЧ (сортировка по ПЛАН) ─
+    # ── Таблица 1: Основные — ПЛАН, КОП, ТО к нед./вчера, ПвЧ ───────────────
     s1 = sorted(stores, key=lambda x: x['plan'])
     rows1, colors1 = [], []
     for st in s1:
-        rows1.append([st['name'], _p(st['kop']),
+        rows1.append([st['name'], _p(st['plan']), _p(st['kop']),
                       _rp(st['to_ned']), _rp(st['to_vch']), _pr(st['pvch'])])
         colors1.append([
             WHITE,
+            _c_plan(st['plan']),
             _c_norm(st['kop'],    norms['kop']),
             _c_delta(st['to_ned'], bad=-20),
             _c_delta(st['to_vch'], bad=-15),
             _c_norm(st['pvch'],   norm_pvch),
         ])
     images.append(('main', _draw(
-        'Основные — КОП, ТО к нед./вчера, ПвЧ',
-        ['Магазин', 'КОП%', 'ТО/нед', 'ТО/вчера', 'ПвЧ'],
+        'Основные — ПЛАН, КОП, ТО к нед./вчера, ПвЧ',
+        ['Магазин', 'ПЛАН%', 'КОП%', 'ТО/нед', 'ТО/вчера', 'ПвЧ'],
         rows1, colors1, date_str, time_str
     )))
 
     # ── Таблица 2: Допродажи ──────────────────────────────────────────────────
-    s2 = sorted(stores, key=lambda x: (x['kosm'] + x['steli']) / 2)
+    s2 = sorted(stores, key=lambda x: (x['kosm'] + x['steli'] + x['yui']) / 3)
     rows2, colors2 = [], []
     for st in s2:
         rows2.append([st['name'], _p(st['kosm']), _p(st['steli']),
-                      _p(st['sreb']), _p(st['zol'])])
+                      _p(st['yui']), _p(st['sreb']), _p(st['zol'])])
         colors2.append([
             WHITE,
             _c_norm(st['kosm'],  norms['kosm']),
             _c_norm(st['steli'], norms['steli']),
+            _c_norm(st['yui'],   norms['yui']),
             _c_norm(st['sreb'],  norms['sreb']),
             _c_norm(st['zol'],   norms['zol']),
         ])
     images.append(('upsell', _draw(
-        'Допродажи — Косм., Стельки, Серебро, Золото',
-        ['Магазин', 'Косм%', 'Стельки%', 'Серебро%', 'Золото%'],
+        'Допродажи — Косм., Стельки, ЮИ, Серебро, Золото',
+        ['Магазин', 'Косм%', 'Стельки%', 'ЮИ%', 'Серебро%', 'Золото%'],
         rows2, colors2, date_str, time_str
     )))
 
