@@ -24,7 +24,7 @@ EMAIL_PASSWORD = "a5YFpmM!"
 
 MAILBOXES           = ["INBOX", "&BD4EQgRHBDUEQgRL-"]
 SENDER_EMAIL        = "reports@kari.com"
-SUBJECT_MUST_CONTAIN = ["часу продаж", "ростов"]
+SUBJECT_MUST_CONTAIN = ["часу продаж", "ростов", "подразделени"]
 FILENAME_KEYWORDS   = ["подразделение", "часу"]
 
 BASE_DIR     = Path(__file__).parent
