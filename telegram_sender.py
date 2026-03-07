@@ -5,7 +5,8 @@
 """
 import requests, sys, time, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bot_analyzer import run
+from bot_analyzer import run, load
+from report_image import generate_images
 
 BOT_TOKEN = "8604841476:AAGnYTalL6v6rFLW2qHJwTSNJ0F9kiHf8oY"
 
@@ -46,15 +47,28 @@ def send_file(chat_id, filepath):
         resp = requests.post(url, data={"chat_id": chat_id}, files={"document": f})
     print("    ✅ Файл OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
 
+def send_photo(chat_id, png_bytes):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+    resp = requests.post(url, data={"chat_id": chat_id}, files={"photo": ("table.png", png_bytes, "image/png")})
+    print("    ✅ Фото OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
+    time.sleep(0.5)
+
 def main(filepath):
     print(f"\n📂 Файл: {filepath}")
     result = run(filepath)
+    stores, date_str, time_str, norms, total = load(filepath)
+
+    chat_id = CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"]
 
     print("\n📢 Общая сводка → Текущая работа РОСТОВ")
-    send(CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"],
-         result['general']['message'],
-         result['general']['parse_mode'])
-    send_file(CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"], filepath)
+    send(chat_id, result['general']['message'], result['general']['parse_mode'])
+    send_file(chat_id, filepath)
+
+    print("\n📊 Генерация таблиц-рейтингов...")
+    images = generate_images(stores, norms, date_str, time_str)
+    for label, png_bytes in images:
+        print(f"    → {label}")
+        send_photo(chat_id, png_bytes)
 
     print(f"\n✅ Готово! Отправлено в общий чат.")
 
