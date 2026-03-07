@@ -11,6 +11,8 @@ from recommendations import get_tip
 
 BOT_TOKEN = "8604841476:AAGnYTalL6v6rFLW2qHJwTSNJ0F9kiHf8oY"
 
+REPORTS_THREAD_ID = 2   # топик "отчеты" в группе "Текущая работа РОСТОВ"
+
 CHAT_IDS = {
     "ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ": "-1002696361907",   # Текущая работа РОСТОВ
     "10045 Шахты Ростов":          "-1001842949200",
@@ -35,22 +37,31 @@ CHAT_IDS = {
     "13159_Сальск_Ростов":         "-1002164998662",
 }
 
-def send(chat_id, text, parse_mode="HTML"):
+def send(chat_id, text, parse_mode="HTML", thread_id=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     for chunk in [text[i:i+4000] for i in range(0, len(text), 4000)]:
-        resp = requests.post(url, json={"chat_id": chat_id, "text": chunk, "parse_mode": parse_mode})
+        payload = {"chat_id": chat_id, "text": chunk, "parse_mode": parse_mode}
+        if thread_id:
+            payload["message_thread_id"] = thread_id
+        resp = requests.post(url, json=payload)
         print("    ✅ OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
         time.sleep(0.5)
 
-def send_file(chat_id, filepath):
+def send_file(chat_id, filepath, thread_id=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+    data = {"chat_id": chat_id}
+    if thread_id:
+        data["message_thread_id"] = thread_id
     with open(filepath, "rb") as f:
-        resp = requests.post(url, data={"chat_id": chat_id}, files={"document": f})
+        resp = requests.post(url, data=data, files={"document": f})
     print("    ✅ Файл OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
 
-def send_photo(chat_id, png_bytes):
+def send_photo(chat_id, png_bytes, thread_id=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    resp = requests.post(url, data={"chat_id": chat_id}, files={"photo": ("table.png", png_bytes, "image/png")})
+    data = {"chat_id": chat_id}
+    if thread_id:
+        data["message_thread_id"] = thread_id
+    resp = requests.post(url, data=data, files={"photo": ("table.png", png_bytes, "image/png")})
     print("    ✅ Фото OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
     time.sleep(0.5)
 
@@ -60,23 +71,24 @@ def main(filepath):
     stores, date_str, time_str, norms, total = load(filepath)
 
     chat_id = CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"]
+    tid = REPORTS_THREAD_ID
 
-    print("\n📢 Общая сводка → Текущая работа РОСТОВ")
-    send(chat_id, result['general']['message'], result['general']['parse_mode'])
-    send_file(chat_id, filepath)
+    print("\n📢 Общая сводка → топик 'отчеты'")
+    send(chat_id, result['general']['message'], result['general']['parse_mode'], thread_id=tid)
+    send_file(chat_id, filepath, thread_id=tid)
 
     print("\n📊 Генерация таблиц-рейтингов...")
     images = generate_images(stores, norms, total, date_str, time_str)
     for label, png_bytes in images:
         print(f"    → {label}")
-        send_photo(chat_id, png_bytes)
+        send_photo(chat_id, png_bytes, thread_id=tid)
 
     if time_str == "22:00":
         print("\n🌟 Итоги дня — похвала лучших...")
-        send(chat_id, make_praise(stores, date_str))
+        send(chat_id, make_praise(stores, date_str), thread_id=tid)
     else:
         print("\n💡 Отправка рекомендаций...")
-        send(chat_id, get_tip())
+        send(chat_id, get_tip(), thread_id=tid)
 
     print(f"\n✅ Готово! Отправлено в общий чат.")
 
