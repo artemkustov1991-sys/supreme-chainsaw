@@ -89,7 +89,7 @@ def load(filepath):
     total = {
         'to':     sv(bench[2]),
         'kop':    s(bench[7]),
-        'pvch':   round(float(bench[10]), 2) if pd.notna(bench[10]) else 0,
+        'pvch':   round(s(bench[10], mult=1), 2),
         'sch':    sv(bench[15]),
         'traf':   sv(bench[17]),
         'to_ned': s(bench[3]),
@@ -110,7 +110,7 @@ def load(filepath):
             'to_vch':   s(row[4]),
             'plan':     s(row[5]),
             'kop':      s(row[7]),
-            'pvch':     round(float(row[10]), 2) if pd.notna(row[10]) else 0,
+            'pvch':     round(s(row[10], mult=1), 2),
             'sch_ob':   sv(row[13]),
             'sch':      sv(row[15]),
             'traf_ned': s(row[18]),
