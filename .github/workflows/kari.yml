@@ -1,0 +1,24 @@
+name: Kari Rostov Scheduler
+
+on:
+  schedule:
+    - cron: '0 10 * * 1-6'   # 13:00 МСК (пн-сб)
+    - cron: '0 13 * * 1-6'   # 16:00 МСК (пн-сб)
+    - cron: '0 16 * * 1-6'   # 19:00 МСК (пн-сб)
+  workflow_dispatch:           # ручной запуск при необходимости
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run report
+        run: python run_once.py
