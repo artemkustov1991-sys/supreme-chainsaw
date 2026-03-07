@@ -5,7 +5,7 @@
 """
 import requests, sys, time, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bot_analyzer import run, load
+from bot_analyzer import run, load, make_praise
 from report_image import generate_images
 from recommendations import get_tip
 
@@ -71,8 +71,12 @@ def main(filepath):
         print(f"    → {label}")
         send_photo(chat_id, png_bytes)
 
-    print("\n💡 Отправка рекомендаций...")
-    send(chat_id, get_tip())
+    if time_str == "22:00":
+        print("\n🌟 Итоги дня — похвала лучших...")
+        send(chat_id, make_praise(stores, date_str))
+    else:
+        print("\n💡 Отправка рекомендаций...")
+        send(chat_id, get_tip())
 
     print(f"\n✅ Готово! Отправлено в общий чат.")
 

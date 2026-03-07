@@ -168,6 +168,32 @@ def make_general(stores, date_str, time_str, total):
 {anti("sch", "СЧ", fmt="rub")}'''
 
 
+def make_praise(stores, date_str):
+    def top1(key, label, fmt='pct'):
+        best = max(stores, key=lambda x: x[key])
+        v = best[key]
+        if fmt == 'pct':   val = f'{v:.1f}%'
+        elif fmt == 'rub': val = f'{v:,}₽'
+        elif fmt == 'par': val = f'{v:.2f} пар'
+        return f'🏆 <b>{label}</b>\n   {best["name"]} — {val}'
+
+    lines = [
+        f'🌟 <b>ИТОГИ ДНЯ — {date_str}</b>',
+        '━━━━━━━━━━━━━━━━━━━━━',
+        'Молодцы! Выделяем лучших за день:',
+        '',
+        top1('to',   'Лучший товарооборот',  fmt='rub'),
+        top1('pvch', 'Лучшие пары в чеке',   fmt='par'),
+        top1('sch',  'Лучший средний чек',   fmt='rub'),
+        top1('yui',  'Лучшие ЮИ',            fmt='pct'),
+        top1('zol',  'Лучшее золото',        fmt='pct'),
+        top1('sreb', 'Лучшее серебро',       fmt='pct'),
+        '',
+        'Так держать! Завтра — новый день и новые возможности. 💪',
+    ]
+    return '\n'.join(lines)
+
+
 def make_store_msg(st, time_str, norms):
     """Полный разбор — для всех магазинов"""
 
