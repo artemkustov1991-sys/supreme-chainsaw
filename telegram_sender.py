@@ -49,16 +49,7 @@ def main(filepath):
          result['general']['message'],
          result['general']['parse_mode'])
 
-    print(f"\n💥 Магазины ниже 70% ({len(result['stores'])} шт.):")
-    for st in result['stores']:
-        chat_id = CHAT_IDS.get(st['group_name'])
-        print(f"  → {st['group_name']} (план {st['plan_pct']}%)", end=" ")
-        if chat_id:
-            send(chat_id, st['message'], st['parse_mode'])
-        else:
-            print("⚠️  Нет chat_id")
-
-    print(f"\n✅ Готово! Отправлено в {len(result['stores'])+1} групп.")
+    print(f"\n✅ Готово! Отправлено в общий чат.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
