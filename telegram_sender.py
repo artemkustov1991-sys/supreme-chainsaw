@@ -7,6 +7,7 @@ import requests, sys, time, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bot_analyzer import run, load
 from report_image import generate_images
+from recommendations import get_tip
 
 BOT_TOKEN = "8604841476:AAGnYTalL6v6rFLW2qHJwTSNJ0F9kiHf8oY"
 
@@ -69,6 +70,9 @@ def main(filepath):
     for label, png_bytes in images:
         print(f"    → {label}")
         send_photo(chat_id, png_bytes)
+
+    print("\n💡 Отправка рекомендаций...")
+    send(chat_id, get_tip())
 
     print(f"\n✅ Готово! Отправлено в общий чат.")
 
