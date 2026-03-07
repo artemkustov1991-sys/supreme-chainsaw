@@ -40,6 +40,12 @@ def send(chat_id, text, parse_mode="HTML"):
         print("    ✅ OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
         time.sleep(0.5)
 
+def send_file(chat_id, filepath):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+    with open(filepath, "rb") as f:
+        resp = requests.post(url, data={"chat_id": chat_id}, files={"document": f})
+    print("    ✅ Файл OK" if resp.status_code == 200 else f"    ❌ {resp.text}")
+
 def main(filepath):
     print(f"\n📂 Файл: {filepath}")
     result = run(filepath)
@@ -48,6 +54,7 @@ def main(filepath):
     send(CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"],
          result['general']['message'],
          result['general']['parse_mode'])
+    send_file(CHAT_IDS["ОБЩИЙ ЧАТ ПОДРАЗДЕЛЕНИЯ"], filepath)
 
     print(f"\n✅ Готово! Отправлено в общий чат.")
 
