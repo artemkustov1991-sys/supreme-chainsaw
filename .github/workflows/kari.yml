@@ -2,10 +2,34 @@ name: Kari Rostov Scheduler
 
 on:
   schedule:
-    - cron: '0 10 * * 1-6'   # 13:00 МСК (пн-сб)
-    - cron: '0 13 * * 1-6'   # 16:00 МСК (пн-сб)
-    - cron: '0 16 * * 1-6'   # 19:00 МСК (пн-сб)
-    - cron: '0 20 * * 1-6'   # 23:00 МСК (пн-сб)
+    # Слот 12:00 → отчёт в 13:00 МСК — 5 попыток каждые 10 мин
+    - cron: '50 9 * * 1-6'   # 12:50 МСК
+    - cron: '0 10 * * 1-6'   # 13:00 МСК
+    - cron: '10 10 * * 1-6'  # 13:10 МСК
+    - cron: '20 10 * * 1-6'  # 13:20 МСК
+    - cron: '30 10 * * 1-6'  # 13:30 МСК
+
+    # Слот 15:00 → отчёт в 16:00 МСК — 5 попыток каждые 10 мин
+    - cron: '50 12 * * 1-6'  # 15:50 МСК
+    - cron: '0 13 * * 1-6'   # 16:00 МСК
+    - cron: '10 13 * * 1-6'  # 16:10 МСК
+    - cron: '20 13 * * 1-6'  # 16:20 МСК
+    - cron: '30 13 * * 1-6'  # 16:30 МСК
+
+    # Слот 18:00 → отчёт в 19:00 МСК — 5 попыток каждые 10 мин
+    - cron: '50 15 * * 1-6'  # 18:50 МСК
+    - cron: '0 16 * * 1-6'   # 19:00 МСК
+    - cron: '10 16 * * 1-6'  # 19:10 МСК
+    - cron: '20 16 * * 1-6'  # 19:20 МСК
+    - cron: '30 16 * * 1-6'  # 19:30 МСК
+
+    # Слот 22:00 → отчёт в 23:00 МСК — 5 попыток каждые 10 мин
+    - cron: '50 19 * * 1-6'  # 22:50 МСК
+    - cron: '0 20 * * 1-6'   # 23:00 МСК
+    - cron: '10 20 * * 1-6'  # 23:10 МСК
+    - cron: '20 20 * * 1-6'  # 23:20 МСК
+    - cron: '30 20 * * 1-6'  # 23:30 МСК
+
   workflow_dispatch:           # ручной запуск при необходимости
 
 jobs:
@@ -13,6 +37,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set Moscow date
+        run: echo "MSK_DATE=$(TZ='Europe/Moscow' date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Restore sent-flags cache
+        uses: actions/cache@v4
+        with:
+          path: .sent_flags
+          key: kari-sent-${{ env.MSK_DATE }}
+          restore-keys: kari-sent-${{ env.MSK_DATE }}
 
       - uses: actions/setup-python@v5
         with:
@@ -23,3 +57,5 @@ jobs:
 
       - name: Run report
         run: python run_once.py
+        env:
+          SENT_FLAGS_DIR: .sent_flags

@@ -27,18 +27,20 @@ SENDER_EMAIL        = "reports@kari.com"
 SUBJECT_MUST_CONTAIN = ["часу продаж", "ростов", "для подразделени"]
 FILENAME_KEYWORDS   = ["подразделение", "часу"]
 
-BASE_DIR     = Path(__file__).parent
-DOWNLOAD_DIR = BASE_DIR / "reports"
-LOG_FILE     = BASE_DIR / "run.log"
+BASE_DIR       = Path(__file__).parent
+DOWNLOAD_DIR   = BASE_DIR / "reports"
+LOG_FILE       = BASE_DIR / "run.log"
+SENT_FLAGS_DIR = Path(os.environ.get("SENT_FLAGS_DIR", str(BASE_DIR / ".sent_flags")))
 
 MOSCOW_TZ = timezone(timedelta(hours=3))
 
 # Карта: (от_часа, до_часа_включительно) → метка времени в теле письма
+# Окно на час раньше — чтобы ловить запуски в :50 предыдущего часа
 SLOT_MAP = {
-    (13, 14): "12:00",
-    (16, 17): "15:00",
-    (19, 20): "18:00",
-    (23, 24): "22:00",
+    (12, 14): "12:00",
+    (15, 17): "15:00",
+    (18, 20): "18:00",
+    (22, 24): "22:00",
 }
 
 # ── Логирование ───────────────────────────────────────────────────────────────
@@ -207,9 +209,22 @@ def fetch_latest_report(time_label):
     return latest_file
 
 
+# ── Защита от двойной отправки ────────────────────────────────────────────────
+def sent_flag_path(today, time_label):
+    return SENT_FLAGS_DIR / f"{today}_{time_label.replace(':', '-')}.sent"
+
+def already_sent(today, time_label):
+    return sent_flag_path(today, time_label).exists()
+
+def mark_sent(today, time_label):
+    SENT_FLAGS_DIR.mkdir(parents=True, exist_ok=True)
+    sent_flag_path(today, time_label).touch()
+
+
 # ── Точка входа ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     now_msk = datetime.now(MOSCOW_TZ)
+    today   = now_msk.strftime("%Y-%m-%d")
     log.info("=" * 55)
     log.info(f"GitHub Actions — запуск отчёта")
     log.info(f"Время МСК: {now_msk.strftime('%d.%m.%Y %H:%M:%S')}")
@@ -218,6 +233,10 @@ if __name__ == "__main__":
 
     if not time_label:
         log.warning(f"Вне рабочего окна (час МСК: {now_msk.hour}). Выход.")
+        sys.exit(0)
+
+    if already_sent(today, time_label):
+        log.info(f"Отчёт {time_label} за {today} уже отправлен. Пропуск.")
         sys.exit(0)
 
     log.info(f"Ищем отчёт за слот: {time_label}")
@@ -233,4 +252,5 @@ if __name__ == "__main__":
     sys.path.insert(0, str(BASE_DIR))
     from telegram_sender import main as send_report
     send_report(filepath)
+    mark_sent(today, time_label)
     log.info("Рассылка завершена!")
