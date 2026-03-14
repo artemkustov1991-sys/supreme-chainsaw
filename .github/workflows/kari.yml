@@ -45,6 +45,10 @@ on:
 
   workflow_dispatch:           # ручной запуск при необходимости
 
+concurrency:
+  group: kari-report          # только один запуск одновременно
+  cancel-in-progress: false   # остальные ждут очереди (не отменяются)
+
 jobs:
   send-report:
     runs-on: ubuntu-latest
