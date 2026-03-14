@@ -11,6 +11,7 @@ import imaplib
 import email
 import re
 import logging
+import argparse
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
@@ -60,16 +61,20 @@ log = logging.getLogger(__name__)
 # ── Вспомогательные функции ───────────────────────────────────────────────────
 def get_target_slot():
     """Определяет какой временной слот ищем по текущему времени МСК.
-    Возвращает метку времени (например '12-00') или None если вне окна."""
+    Возвращает метку времени (например '12:00') или None если вне окна.
+    Окна расширены с учётом задержки GitHub Actions до 2+ часов."""
     now_msk = datetime.now(MOSCOW_TZ)
     h = now_msk.hour
-    for (h_from, h_to), label in SLOT_MAP.items():
-        if h_from <= h < h_to:
-            return label
-    # GitHub Actions может опоздать на 30+ мин — расширяем окно
-    for (h_from, h_to), label in SLOT_MAP.items():
-        if h_from <= h < h_to + 1:
-            return label
+    # Широкие окна: каждый слот покрывает ~3 часа задержки
+    # 22:00 покрывает переход через полночь (h=22,23,0,1)
+    if 12 <= h < 15:
+        return "12:00"
+    if 15 <= h < 18:
+        return "15:00"
+    if 18 <= h < 22:
+        return "18:00"
+    if h >= 22 or h < 2:   # 22:00–23:59 и 00:00–01:59 МСК
+        return "22:00"
     return None
 
 
@@ -124,9 +129,17 @@ def body_contains_time(msg, time_label):
 
 
 # ── Основная функция ──────────────────────────────────────────────────────────
+def get_report_date(time_label):
+    """Возвращает дату письма МСК. Слот 22:00 после полуночи → ищем вчера."""
+    now_msk = datetime.now(MOSCOW_TZ)
+    if time_label == "22:00" and now_msk.hour < 2:
+        return (now_msk - timedelta(days=1)).date()
+    return now_msk.date()
+
+
 def fetch_latest_report(time_label):
-    """Ищет сегодняшнее письмо с нужным временным слотом, возвращает путь к xlsx."""
-    today_msk = datetime.now(MOSCOW_TZ).date()
+    """Ищет письмо с нужным временным слотом, возвращает путь к xlsx."""
+    today_msk = get_report_date(time_label)
     # IMAP дата для поиска (формат: DD-Mon-YYYY)
     imap_date = today_msk.strftime("%d-%b-%Y")
 
@@ -217,23 +230,39 @@ def already_sent(today, time_label):
     return sent_flag_path(today, time_label).exists()
 
 def mark_sent(today, time_label):
+    """Атомарно создаёт флаг — возвращает True если удалось (мы первые), False если уже занято."""
     SENT_FLAGS_DIR.mkdir(parents=True, exist_ok=True)
-    sent_flag_path(today, time_label).touch()
+    try:
+        sent_flag_path(today, time_label).open('x').close()
+        return True
+    except FileExistsError:
+        return False
 
 
 # ── Точка входа ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--slot", default=None, help="Временной слот, например 12:00")
+    args = parser.parse_args()
+
     now_msk = datetime.now(MOSCOW_TZ)
-    today   = now_msk.strftime("%Y-%m-%d")
     log.info("=" * 55)
-    log.info(f"GitHub Actions — запуск отчёта")
+    log.info(f"Запуск отчёта")
     log.info(f"Время МСК: {now_msk.strftime('%d.%m.%Y %H:%M:%S')}")
 
-    time_label = get_target_slot()
+    if args.slot:
+        time_label = args.slot
+        log.info(f"Слот задан аргументом: {time_label}")
+    else:
+        time_label = get_target_slot()
 
     if not time_label:
         log.warning(f"Вне рабочего окна (час МСК: {now_msk.hour}). Выход.")
         sys.exit(0)
+
+    # Дата отчёта (для 22:00 после полуночи — вчера)
+    today = get_report_date(time_label).strftime("%Y-%m-%d")
+    log.info(f"Дата отчёта: {today}")
 
     if already_sent(today, time_label):
         log.info(f"Отчёт {time_label} за {today} уже отправлен. Пропуск.")
@@ -249,8 +278,13 @@ if __name__ == "__main__":
         sys.exit(0)
 
     log.info(f"Файл найден: {filepath}")
+
+    # Атомарно занимаем слот ДО отправки — защита от повторной отправки
+    if not mark_sent(today, time_label):
+        log.info(f"Отчёт {time_label} уже занят другим процессом. Пропуск.")
+        sys.exit(0)
+
     sys.path.insert(0, str(BASE_DIR))
     from telegram_sender import main as send_report
     send_report(filepath)
-    mark_sent(today, time_label)
     log.info("Рассылка завершена!")
