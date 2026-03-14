@@ -3,7 +3,11 @@
 ОТПРАВЩИК В TELEGRAM — Подразделение ЮГ
 Использование: python telegram_sender.py путь_к_файлу.xlsx
 """
-import requests, sys, time, os
+import requests, sys, time, os, io
+if hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bot_analyzer import run, load, make_praise
 from report_image import generate_images
