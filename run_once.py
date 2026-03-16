@@ -138,7 +138,10 @@ def get_report_date(time_label):
 
 
 def fetch_latest_report(time_label):
-    """Ищет письмо с нужным временным слотом, возвращает путь к xlsx."""
+    """Ищет НЕФЛАЖЕННОЕ письмо с нужным временным слотом.
+    Сразу помечает найденное письмо флагом \\Flagged на IMAP-сервере —
+    это единый замок для всех машин (GitHub Actions, Termux, ПК).
+    Возвращает путь к xlsx или None."""
     today_msk = get_report_date(time_label)
     # IMAP дата для поиска (формат: DD-Mon-YYYY)
     imap_date = today_msk.strftime("%d-%b-%Y")
@@ -151,13 +154,13 @@ def fetch_latest_report(time_label):
 
     for mailbox in MAILBOXES:
         mail.select(mailbox)
-        # Ищем сегодняшние письма от нужного отправителя
+        # Ищем только НЕФЛАЖЕННЫЕ письма — флаг \Flagged = «уже обработано»
         status, data = mail.search(
             None,
-            f'FROM "{SENDER_EMAIL}" ON "{imap_date}"'
+            f'UNFLAGGED FROM "{SENDER_EMAIL}" ON "{imap_date}"'
         )
         ids = data[0].split()
-        log.info(f"  Папка {mailbox!r}: {len(ids)} писем от {SENDER_EMAIL} за {today_msk}")
+        log.info(f"  Папка {mailbox!r}: {len(ids)} нефлаженных писем от {SENDER_EMAIL} за {today_msk}")
 
         # Перебираем от новых к старым
         for num in reversed(ids):
@@ -185,6 +188,14 @@ def fetch_latest_report(time_label):
                     continue
 
                 log.info(f"  Письмо подходит: {subject} | {email_dt}")
+
+                # ФЛАЖИМ НЕМЕДЛЕННО — атомарный «замок» на почтовом сервере.
+                # Следующий запуск (GA / Termux) не найдёт письмо в UNFLAGGED.
+                try:
+                    mail.store(num, '+FLAGS', '\\Flagged')
+                    log.info(f"  Письмо помечено \\Flagged (дедупликация)")
+                except Exception as fe:
+                    log.warning(f"  Не удалось поставить \\Flagged: {fe}")
 
                 # Берём только xlsx вложение
                 for part in msg.walk():
