@@ -68,8 +68,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .sent_flags
-          key: kari-sent-${{ env.MSK_DATE }}
-          restore-keys: kari-sent-${{ env.MSK_DATE }}
+          # Уникальный ключ сохранения по run_id — гарантирует что флаги всегда пишутся.
+          # restore-keys подбирает последний кэш за текущую дату.
+          key: kari-sent-${{ env.MSK_DATE }}-${{ github.run_id }}
+          restore-keys: kari-sent-${{ env.MSK_DATE }}-
 
       - uses: actions/setup-python@v5
         with:
